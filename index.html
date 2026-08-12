@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Discord風チャット</title>
+  <style>
+    :root {
+      --server-bg: #1e1f22;
+      --channel-bg: #2b2d31;
+      --chat-bg: #313338;
+      --panel-bg: #232428;
+      --input-bg: #383a40;
+      --text: #f2f3f5;
+      --muted: #949ba4;
+      --accent: #5865f2;
+      --accent-hover: #4752c4;
+      --online: #23a55a;
+      --danger: #f23f43;
+      --border: #3f4147;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--chat-bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 72px 260px minmax(0, 1fr) 240px;
+      height: 100vh;
+    }
+
+    .servers {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      background: var(--server-bg);
+    }
+
+    .server-icon {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      background: var(--channel-bg);
+      color: var(--text);
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
+
+    .server-icon.active,
+    .server-icon:hover {
+      border-radius: 14px;
+      background: var(--accent);
+    }
+
+    .server-icon.add {
+      color: var(--online);
+      font-size: 26px;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      background: var(--channel-bg);
+      min-width: 0;
+    }
+
+    .guild-header {
+      padding: 18px 16px;
+      font-weight: 800;
+      border-bottom: 1px solid #202225;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .channels {
+      flex: 1;
+      padding: 14px 8px;
+      overflow-y: auto;
+    }
+
+    .section-title {
+      margin: 18px 8px 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .channel {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .channel.active,
+    .channel:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    .user-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: var(--panel-bg);
+    }
+
+    .avatar {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #5865f2, #eb459e);
+      font-weight: 800;
+    }
+
+    .avatar::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      bottom: -1px;
+      width: 11px;
+      height: 11px;
+      border: 3px solid var(--panel-bg);
+      border-radius: 50%;
+      background: var(--online);
+    }
+
+    .user-name {
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .user-status {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .chat {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--chat-bg);
+    }
+
+    .chat-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 56px;
+      padding: 0 20px;
+      border-bottom: 1px solid #27292d;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+      font-weight: 800;
+    }
+
+    .topic {
+      padding-left: 12px;
+      border-left: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .messages {
+      flex: 1;
+      padding: 24px 24px 8px;
+      overflow-y: auto;
+    }
+
+    .message {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .message .avatar {
+      width: 42px;
+      height: 42px;
+    }
+
+    .message .avatar::after {
+      display: none;
+    }
+
+    .message-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .author {
+      font-weight: 800;
+    }
+
+    .time {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .message-text {
+      color: #dbdee1;
+      line-height: 1.55;
+    }
+
+    .composer {
+      display: flex;
+      gap: 10px;
+      padding: 0 24px 24px;
+    }
+
+    .composer input {
+      flex: 1;
+      border: 0;
+      border-radius: 10px;
+      padding: 15px 16px;
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+    }
+
+    .composer button {
+      border: 0;
+      border-radius: 10px;
+      padding: 0 18px;
+      background: var(--accent);
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .composer button:hover {
+      background: var(--accent-hover);
+    }
+
+    .members {
+      padding: 18px 12px;
+      background: var(--channel-bg);
+      overflow-y: auto;
+    }
+
+    .member {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border-radius: 6px;
+      color: #dbdee1;
+    }
+
+    .member:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .member .avatar {
+      width: 32px;
+      height: 32px;
+      font-size: 13px;
+    }
+
+    .member.offline .avatar::after {
+      background: #80848e;
+    }
+
+    @media (max-width: 920px) {
+      .app {
+        grid-template-columns: 64px 220px minmax(0, 1fr);
+      }
+
+      .members {
+        display: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .servers,
+      .sidebar {
+        display: none;
+      }
+
+      .chat {
+        min-height: 100vh;
+      }
+
+      .topic {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <nav class="servers" aria-label="サーバー一覧">
+      <div class="server-icon active">DC</div>
+      <div class="server-icon">JS</div>
+      <div class="server-icon">UI</div>
+      <div class="server-icon add">+</div>
+    </nav>
+
+    <aside class="sidebar">
+      <div class="guild-header">Dev Community</div>
+      <div class="channels">
+        <div class="section-title">Text Channels</div>
+        <div class="channel active"># general</div>
+        <div class="channel"># announcements</div>
+        <div class="channel"># design</div>
+        <div class="channel"># random</div>
+
+        <div class="section-title">Voice Channels</div>
+        <div class="channel">🔊 Lounge</div>
+        <div class="channel">🔊 Pair Programming</div>
+      </div>
+      <div class="user-card">
+        <div class="avatar">ME</div>
+        <div>
+          <div class="user-name">あなた</div>
+          <div class="user-status">オンライン</div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="chat" aria-label="チャット画面">
+      <header class="chat-header">
+        <span># general</span>
+        <span class="topic">Discord風チャットUIのサンプル</span>
+      </header>
+
+      <div class="messages" id="messages">
+        <article class="message">
+          <div class="avatar">AK</div>
+          <div>
+            <div class="message-meta"><span class="author">Akira</span><span class="time">今日 09:12</span></div>
+            <div class="message-text">おはよう！新しいチャットアプリのレイアウト、かなりDiscordっぽくなってきたね。</div>
+          </div>
+        </article>
+
+        <article class="message">
+          <div class="avatar">YU</div>
+          <div>
+            <div class="message-meta"><span class="author">Yui</span><span class="time">今日 09:18</span></div>
+            <div class="message-text">左にサーバー、中央にチャンネル、右にメンバー一覧があると使いやすいです。</div>
+          </div>
+        </article>
+
+        <article class="message">
+          <div class="avatar">RN</div>
+          <div>
+            <div class="message-meta"><span class="author">Ren</span><span class="time">今日 09:24</span></div>
+            <div class="message-text">下の入力欄からメッセージを追加できます。まずは静的HTMLとして試してみましょう。</div>
+          </div>
+        </article>
+      </div>
+
+      <form class="composer" id="composer">
+        <input id="messageInput" type="text" placeholder="#general へメッセージを送信" autocomplete="off" />
+        <button type="submit">送信</button>
+      </form>
+    </section>
+
+    <aside class="members" aria-label="メンバー一覧">
+      <div class="section-title">Online — 4</div>
+      <div class="member"><div class="avatar">ME</div><span>あなた</span></div>
+      <div class="member"><div class="avatar">AK</div><span>Akira</span></div>
+      <div class="member"><div class="avatar">YU</div><span>Yui</span></div>
+      <div class="member"><div class="avatar">RN</div><span>Ren</span></div>
+
+      <div class="section-title">Offline — 2</div>
+      <div class="member offline"><div class="avatar">SO</div><span>Sora</span></div>
+      <div class="member offline"><div class="avatar">MI</div><span>Mina</span></div>
+    </aside>
+  </main>
+
+  <script>
+    const composer = document.querySelector('#composer');
+    const input = document.querySelector('#messageInput');
+    const messages = document.querySelector('#messages');
+
+    composer.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+
+      if (!text) return;
+
+      const now = new Date();
+      const time = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+      const message = document.createElement('article');
+      message.className = 'message';
+      message.innerHTML = `
+        <div class="avatar">ME</div>
+        <div>
+          <div class="message-meta"><span class="author">あなた</span><span class="time">今日 ${time}</span></div>
+          <div class="message-text"></div>
+        </div>
+      `;
+
+      message.querySelector('.message-text').textContent = text;
+      messages.appendChild(message);
+      input.value = '';
+      messages.scrollTop = messages.scrollHeight;
+    });
+  </script>
+</body>
+</html>
